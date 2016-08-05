@@ -1,0 +1,217 @@
+<html>
+  <head>
+    <title>todos</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+	
+	<style type="text/css">
+	  body {
+	    font-family: sans-serif;
+	  }
+	  .listContainer {
+	    float: left;
+		margin: 10px;
+		padding: 0 10px;
+		border: 1px solid lightgrey;
+	  }
+	</style>
+  </head>
+  <body>
+    <div>
+      <strong>todos</strong>
+	  <button style="float: right;" type="button" onclick="this.style.display = 'none'; byId('advancedOptions').style.display = null;">show advanced options</button>
+	  <div style="float: right; display: none;" id="advancedOptions">
+	    <button type="button" onclick="saveLists();">save</button>
+	    <button type="button" onclick="exportLists();">export</button>
+	    <button type="button" onclick="importLists();">import</button>
+	    <input type="text" length="5" id="input_importText" />
+	  </div>
+	</div>
+	<hr />
+	<div id="newListArea">
+	  <input type="text" id="input_newListName" />
+	  <button type="button" onclick="createNewList();">create new list</button>
+	</div>
+	<hr />
+	
+	<div id="newElementArea" style="display: none;">
+	  <select id="newElementListSelect">
+	  </select>
+	  <input type="text" id="input_newElementName" />
+	  <button type="button" onclick="createNewElement();">add to list</button>
+	  <hr />
+	</div>
+	
+	<div id="mainContent">
+	</div>
+	
+	
+	<script type="text/javascript">
+	  var ITEM_NAME = 'todo_lists';
+	  var todoLists = [];
+	  var dao = window.localStorage;
+	  if(!dao) {
+	    alert('sorry, you won\'t be able to save your lists, because your browser sucks');
+	  } else {
+	    loadLists();
+		updatePage();
+	  }
+	  
+	  function TodoList(name) {
+	    this.name = thisOrDefault(name, 'new list');
+	    this.elements = [];
+	  }
+	  
+	  function TodoListElement(id, description, done) {
+	    this.date = new Date();
+		this.id = id;
+		this.description = thisOrDefault(description, '');
+		this.done = thisOrDefault(done, false);
+	  }
+	  
+	  function createNewElement() {
+	    var description = byId('input_newElementName').value;
+	    var listName = byId('newElementListSelect').value;
+		var list = findListByName(listName);
+		if(list === null) {
+		  alert('error adding item');
+		  return;
+		}
+		list.elements.push(new TodoListElement(list.length, description));
+		updateOverviewAndSave();
+	  }
+	  
+	  function createNewList() {
+	    var name = byId('input_newListName').value;
+		if(findListByName(name) !== null) {
+		  alert('a list with that name already exists');
+		  return;
+		}
+		todoLists.push(new TodoList(name));
+		updatePage();
+	  }
+	  
+	  function updatePage() {
+		updateOverviewAndSave();
+		updateNewElementArea();
+	  }
+	  
+	  function updateNewElementArea() {
+	    var newElementAreaDiv = byId('newElementArea');
+	    if(todoLists.length === 0) {
+		  newElementAreaDiv.style.display = 'none';
+		  return;
+	    }
+		
+		var selectBox = byId('newElementListSelect');
+		clearNode(selectBox);
+		for(var i = 0; i < todoLists.length; i += 1) {
+		  var todoList = todoLists[i];
+		  var opt = document.createElement('option');
+		  opt.value = todoList.name;
+		  opt.innerHTML = todoList.name;
+		  selectBox.appendChild(opt);
+		}
+		
+		newElementAreaDiv.style.display = null;
+	  }
+	  
+	  function markElementDone() {
+	    this.object.done = !this.object.done;
+		updateOverviewAndSave();
+	  }
+	  
+	  function updateOverviewAndSave() {
+	    var mainContentDiv = byId('mainContent');
+		clearNode(mainContentDiv);
+		for(var i = 0; i < todoLists.length; i += 1) {
+		  var todoList = todoLists[i];
+		  var listContainer = document.createElement('div');
+		  listContainer.classList.add('listContainer');
+		  var headingContainer = document.createElement('div');
+
+		  var headingContainerInner2 = document.createElement('span');
+		  headingContainerInner2.textContent = '[delete]';
+		  headingContainerInner2.style.marginLeft = '10px';
+		  headingContainerInner2.style.fontSize = '75%';
+		  headingContainerInner2.onclick = (function(list) { return function() {removeList(list);};}(todoList));
+		  var headingNode = document.createElement('h2');
+		  headingNode.textContent = todoList.name;
+		  headingNode.style.display = 'inline';
+		  var listNode = document.createElement('ul');
+		  for(var i2 = 0; i2 < todoList.elements.length; i2 += 1) {
+		    var element = todoList.elements[i2];
+			var elementNode = document.createElement('li');
+			elementNode.textContent = element.description;
+			elementNode.object = element;
+			if(element.done) {
+			  elementNode.style.textDecoration = 'line-through';
+			}
+			elementNode.onclick = markElementDone;
+			listNode.appendChild(elementNode);
+		  }
+		  headingContainer.appendChild(headingNode);
+		  headingContainer.appendChild(headingContainerInner2);
+		  listContainer.appendChild(headingContainer);
+		  listContainer.appendChild(listNode);
+		  mainContentDiv.appendChild(listContainer);
+		}
+		
+		saveLists();
+	  }
+	  
+	  function removeList(list) {
+	    var index = todoLists.indexOf(list);
+		if(index === -1) {
+		  alert('unknown error');
+		  return;
+		}
+	    if(confirm('really delete list "' + list.name + '"?')) {
+		  todoLists.splice(index, 1);
+		}
+		updatePage();
+	  }
+	  
+	  function findListByName(name) {
+	    for(var i = 0; i < todoLists.length; i += 1) {
+		  var todoList = todoLists[i];
+		  if(todoList.name === name) {
+		    return todoList;
+		  }
+		}
+		return null;
+	  }
+	  
+	  function thisOrDefault(value, defaultValue) {
+	    return typeof value !== 'undefined' && value !== null ? value : defaultValue;
+	  }
+	
+	  function loadLists() {
+	    todoLists = thisOrDefault(JSON.parse(dao.getItem(ITEM_NAME)), []);
+	  }
+	
+      function saveLists() {
+	    dao.setItem(ITEM_NAME, JSON.stringify(todoLists));
+	  }
+	  
+	  function exportLists() {
+	    alert(JSON.stringify(todoLists));
+	  }
+	  
+	  function importLists() {
+	    var text = byId('input_importText').value;
+		todoLists = thisOrDefault(JSON.parse(text), []);
+		updatePage();
+	  }
+	  
+	  function byId(e) {
+        return document.getElementById(e);
+      }
+	  
+	  function clearNode(node) {
+	    while(node.firstChild) {
+		  node.removeChild(node.firstChild);
+		}
+	  }
+	</script>
+  </body>
+</html>
